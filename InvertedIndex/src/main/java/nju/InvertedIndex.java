@@ -62,7 +62,6 @@ public class InvertedIndex {
     public static class InvertedIndexReduce extends Reducer<Text,Text,Text,Text>{
 
         private Text result = new Text();
-        private Text result_average = new Text();
 
         public void reduce(Text key, Iterable<Text> values, Context context)
                 throws IOException, InterruptedException {
@@ -73,15 +72,13 @@ public class InvertedIndex {
             double file_count=0;
             for (Text value : values) {
                 file_count++;
-                fileList += value.toString()+";";
                 String s=value.toString();
+                fileList += s.substring(s.lastIndexOf("/")+1,s.indexOf(".txt"))+s.substring(s.lastIndexOf(":"))+";";
                 sum+= Double.parseDouble(s.substring(s.lastIndexOf(":")+1));
             }
             average+=String.valueOf(sum/file_count);
-            result.set(fileList);
-            result_average.set(average);
+            result.set(average+","+fileList);
             context.write(key, result);
-            context.write(key, result_average);
         }
     }
 
