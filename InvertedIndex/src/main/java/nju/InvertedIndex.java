@@ -1,6 +1,8 @@
 package nju;
 import java.io.IOException;
+import java.util.Set;
 import java.util.StringTokenizer;
+import java.util.TreeSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
@@ -15,20 +17,22 @@ import org.apache.log4j.PropertyConfigurator;
 
 public class InvertedIndex {
 
-    public static class InvertedIndexMap extends Mapper<Object,Text,Text,Text>{
+    private static class InvertedIndexMap extends Mapper<Object, Text, Text, Text> {
 
-        private Text valueInfo = new Text();
-        private Text keyInfo = new Text();
-        private FileSplit split;
-
-        public void map(Object key, Text value,Context context)
+        public void map(Object key, Text value, Context context)
                 throws IOException, InterruptedException {
+            Text valueInfo = new Text();
+            Text keyInfo = new Text();
+            FileSplit split;
+
             //获取<key value>对所属的FileSplit对象
             split = (FileSplit) context.getInputSplit();
+            String filePath=split.getPath().toString().toLowerCase();
+
             StringTokenizer stk = new StringTokenizer(value.toString());
             while (stk.hasMoreElements()) {
                 //key值由（单词：URI）组成
-                keyInfo.set(stk.nextToken()+":"+split.getPath().toString());
+                keyInfo.set(stk.nextToken() + ":" + filePath);
                 //词频
                 valueInfo.set("1");
                 context.write(keyInfo, valueInfo);
@@ -39,11 +43,11 @@ public class InvertedIndex {
         }
     }
 
-    public static class InvertedIndexCombiner extends Reducer<Text,Text,Text,Text>{
+    private static class InvertedIndexCombiner extends Reducer<Text, Text, Text, Text> {
 
         Text info = new Text();
 
-        public void reduce(Text key, Iterable<Text> values,Context contex)
+        public void reduce(Text key, Iterable<Text> values, Context contex)
                 throws IOException, InterruptedException {
             int sum = 0;
             for (Text value : values) {
@@ -52,14 +56,14 @@ public class InvertedIndex {
 
             int splitIndex = key.toString().indexOf(":");
             //重新设置value值由（URI+:词频组成）
-            info.set(key.toString().substring(splitIndex+1) +":"+ sum);
+            info.set(key.toString().substring(splitIndex + 1) + ":" + sum);
             //重新设置key值为单词
-            key.set(key.toString().substring(0,splitIndex));
+            key.set(key.toString().substring(0, splitIndex));
             contex.write(key, info);
         }
     }
 
-    public static class InvertedIndexReduce extends Reducer<Text,Text,Text,Text>{
+    private static class InvertedIndexReduce extends Reducer<Text, Text, Text, Text> {
 
         private Text result = new Text();
 
@@ -68,16 +72,29 @@ public class InvertedIndex {
             //生成文档列表
             String fileList = new String();
             String average = new String();
-            double sum=0;
-            double file_count=0;
+            double sum = 0;
+            double file_count = 0;
             for (Text value : values) {
                 file_count++;
-                String s=value.toString();
-                fileList += s.substring(s.lastIndexOf("/")+1,s.indexOf(".txt"))+s.substring(s.lastIndexOf(":"))+";";
-                sum+= Double.parseDouble(s.substring(s.lastIndexOf(":")+1));
+                String s = value.toString();
+                fileList += s.substring(s.lastIndexOf("/") + 1, s.indexOf(".txt")) + s.substring(s.lastIndexOf(":")) + ";";
+                sum += Double.parseDouble(s.substring(s.lastIndexOf(":") + 1));
             }
-            average+=String.valueOf(sum/file_count);
-            result.set(average+","+fileList);
+
+            //Sort fileList
+            String[] sp = fileList.split(";");
+
+            Set<String> set = new TreeSet<String>();
+
+            for (int i = 0; i < sp.length; ++i)
+                set.add(sp[i]);
+
+            StringBuilder resultStr = new StringBuilder();
+            for (String ssr : set)
+                resultStr.append(ssr);
+
+            average += String.valueOf(sum / file_count);
+            result.set(average + "," + resultStr.toString());
             context.write(key, result);
         }
     }
@@ -87,7 +104,7 @@ public class InvertedIndex {
         PropertyConfigurator.configure("log4j.properties");
         Configuration conf = new Configuration();
 
-        Job job = new Job(conf,"InvertedIndex");
+        Job job = new Job(conf, "InvertedIndex");
 
         job.setJarByClass(InvertedIndex.class);
 
@@ -103,8 +120,7 @@ public class InvertedIndex {
 
         FileInputFormat.addInputPath(job, new Path(args[0]));
         FileOutputFormat.setOutputPath(job, new Path(args[1]));
-        System.exit(job.waitForCompletion(true)?0:1);
+        System.exit(job.waitForCompletion(true) ? 0 : 1);
 
     }
 }
-
