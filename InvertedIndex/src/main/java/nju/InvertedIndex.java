@@ -19,14 +19,13 @@ public class InvertedIndex {
 
     private static class InvertedIndexMap extends Mapper<Object, Text, Text, Text> {
 
+        @Override
         public void map(Object key, Text value, Context context)
                 throws IOException, InterruptedException {
             Text valueInfo = new Text();
             Text keyInfo = new Text();
-            FileSplit split;
-
             //获取<key value>对所属的FileSplit对象
-            split = (FileSplit) context.getInputSplit();
+            FileSplit split = (FileSplit) context.getInputSplit();
             String filePath=split.getPath().toString().toLowerCase();
 
             StringTokenizer stk = new StringTokenizer(value.toString());
@@ -45,17 +44,18 @@ public class InvertedIndex {
 
     private static class InvertedIndexCombiner extends Reducer<Text, Text, Text, Text> {
 
-        Text info = new Text();
-
+        @Override
         public void reduce(Text key, Iterable<Text> values, Context contex)
                 throws IOException, InterruptedException {
+
+            Text info = new Text();
+
             int sum = 0;
-            for (Text value : values) {
+            for (Text value : values)
                 sum += Integer.parseInt(value.toString());
-            }
 
             int splitIndex = key.toString().indexOf(":");
-            //重新设置value值由（URI+:词频组成）
+            //重新设置value值由（URI:词频)组成
             info.set(key.toString().substring(splitIndex + 1) + ":" + sum);
             //重新设置key值为单词
             key.set(key.toString().substring(0, splitIndex));
@@ -65,20 +65,22 @@ public class InvertedIndex {
 
     private static class InvertedIndexReduce extends Reducer<Text, Text, Text, Text> {
 
-        private Text result = new Text();
-
+        @Override
         public void reduce(Text key, Iterable<Text> values, Context context)
                 throws IOException, InterruptedException {
+            Text result = new Text();
+
             //生成文档列表
             String fileList = new String();
             String average = new String();
-            double sum = 0;
-            double file_count = 0;
+
+            int sum = 0;
+            int file_count = 0;
             for (Text value : values) {
                 file_count++;
                 String s = value.toString();
                 fileList += s.substring(s.lastIndexOf("/") + 1, s.indexOf(".txt")) + s.substring(s.lastIndexOf(":")) + ";";
-                sum += Double.parseDouble(s.substring(s.lastIndexOf(":") + 1));
+                sum += Integer.parseInt(s.substring(s.lastIndexOf(":") + 1));
             }
 
             //Sort fileList
@@ -90,11 +92,11 @@ public class InvertedIndex {
                 set.add(sp[i]);
 
             StringBuilder resultStr = new StringBuilder();
-            for (String ssr : set)
-                resultStr.append(ssr);
+            for (String snipet : set)
+                resultStr.append(snipet).append(";");
 
             average += String.valueOf(sum / file_count);
-            result.set(average + "," + resultStr.toString());
+            result.set(average + "," + resultStr.substring(0, resultStr.length()-1));
             context.write(key, result);
         }
     }
