@@ -19,11 +19,13 @@ public class InvertedIndex {
 
     private static class InvertedIndexMap extends Mapper<Object, Text, Text, Text> {
 
+        Text valueInfo = new Text();
+        Text keyInfo = new Text();
+
         @Override
         public void map(Object key, Text value, Context context)
                 throws IOException, InterruptedException {
-            Text valueInfo = new Text();
-            Text keyInfo = new Text();
+
             //获取<key value>对所属的FileSplit对象
             FileSplit split = (FileSplit) context.getInputSplit();
             String filePath=split.getPath().toString().toLowerCase();
@@ -44,11 +46,13 @@ public class InvertedIndex {
 
     private static class InvertedIndexCombiner extends Reducer<Text, Text, Text, Text> {
 
+        Text valueInfo = new Text();
+        Text keyInfo = new Text();
+
         @Override
         public void reduce(Text key, Iterable<Text> values, Context contex)
                 throws IOException, InterruptedException {
 
-            Text info = new Text();
 
             int sum = 0;
             for (Text value : values)
@@ -56,19 +60,20 @@ public class InvertedIndex {
 
             int splitIndex = key.toString().indexOf(":");
             //重新设置value值由（URI:词频)组成
-            info.set(key.toString().substring(splitIndex + 1) + ":" + sum);
+            valueInfo.set(key.toString().substring(splitIndex + 1) + ":" + sum);
             //重新设置key值为单词
-            key.set(key.toString().substring(0, splitIndex));
-            contex.write(key, info);
+            keyInfo.set(key.toString().substring(0, splitIndex));
+            contex.write(keyInfo, valueInfo);
         }
     }
 
     private static class InvertedIndexReduce extends Reducer<Text, Text, Text, Text> {
 
+        Text result = new Text();
+
         @Override
         public void reduce(Text key, Iterable<Text> values, Context context)
                 throws IOException, InterruptedException {
-            Text result = new Text();
 
             //生成文档列表
             String fileList = new String();
@@ -83,7 +88,7 @@ public class InvertedIndex {
                 sum += Integer.parseInt(s.substring(s.lastIndexOf(":") + 1));
             }
 
-            //Sort fileList
+            //Sort fileList.
             String[] sp = fileList.split(";");
 
             Set<String> set = new TreeSet<String>();
@@ -95,7 +100,7 @@ public class InvertedIndex {
             for (String snipet : set)
                 resultStr.append(snipet).append(";");
 
-            average += String.valueOf(sum / file_count);
+            average += String.valueOf((double)sum / file_count);
             result.set(average + "," + resultStr.substring(0, resultStr.length()-1));
             context.write(key, result);
         }
