@@ -1,4 +1,9 @@
 package nju;
+
+/**
+ * Created by Zixuan on 16-11-7.
+ */
+
 import java.io.IOException;
 import java.util.Set;
 import java.util.StringTokenizer;
@@ -15,7 +20,7 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.log4j.PropertyConfigurator;
 
 
-public class InvertedIndex
+public class MapReduce
 {
 
     private static class InvertedIndexMap extends Mapper<Object, Text, Text, Text>
@@ -115,7 +120,7 @@ public class InvertedIndex
         }
     }
 
-    public static void main(String[] args) throws IOException, InterruptedException, ClassNotFoundException
+    public static void MapReduceJob(String[] args) throws IOException, InterruptedException, ClassNotFoundException
     {
 
         PropertyConfigurator.configure("log4j.properties");
@@ -123,7 +128,7 @@ public class InvertedIndex
 
         Job job = new Job(conf, "InvertedIndex");
 
-        job.setJarByClass(InvertedIndex.class);
+        job.setJarByClass(MapReduce.class);
 
         job.setMapperClass(InvertedIndexMap.class);
         job.setMapOutputKeyClass(Text.class);

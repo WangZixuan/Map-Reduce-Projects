@@ -1,13 +1,31 @@
 package nju;
-
 /**
- * Hello world!
- *
+ * For exp3.
+ * HBase & Hive.
+ * Created by Zixuan on 16-11-7.
  */
+
+
 public class HBaseAndHive
 {
     public static void main( String[] args )
     {
-        System.out.println( "Hello World!" );
+        MapReduce mr=new MapReduce();
+        try
+        {
+            mr.MapReduceJob(args);
+        }
+        catch (java.io.IOException ioe)
+        {
+
+        }
+        catch (java.lang.InterruptedException iee)
+        {
+
+        }
+        catch (java.lang.ClassNotFoundException cnfe)
+        {
+
+        }
     }
 }
