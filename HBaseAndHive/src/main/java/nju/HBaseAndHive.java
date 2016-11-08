@@ -1,4 +1,9 @@
 package nju;
+
+
+import java.io.File;
+import java.nio.file.FileAlreadyExistsException;
+
 /**
  * For exp3.
  * HBase & Hive.
@@ -8,24 +13,27 @@ package nju;
 
 public class HBaseAndHive
 {
-    public static void main( String[] args )
+    /**
+     * Main.
+     * @param args
+     */
+    public static void main(String[] args)
     {
-        MapReduce mr=new MapReduce();
+        MapReduce mr = new MapReduce();
         try
         {
+            File averageCountFile = new File("AverageCount.txt");
+            if (!averageCountFile.exists())
+                averageCountFile.createNewFile();
+            else
+                throw new FileAlreadyExistsException("AverageCount.txt");
+
             mr.MapReduceJob(args);
-        }
-        catch (java.io.IOException ioe)
-        {
 
-        }
-        catch (java.lang.InterruptedException iee)
+        } catch (Exception e)
         {
-
+            e.printStackTrace();
         }
-        catch (java.lang.ClassNotFoundException cnfe)
-        {
 
-        }
     }
 }

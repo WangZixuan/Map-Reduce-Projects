@@ -2,6 +2,7 @@ package nju;
 
 /**
  * Created by Zixuan on 16-11-7.
+ * Copy from last module of InvertedIndex.
  */
 
 import java.io.IOException;
@@ -22,15 +23,27 @@ import org.apache.log4j.PropertyConfigurator;
 
 public class MapReduce
 {
+    static HBase hb=new HBase();
 
+    /**
+     * Class for Map.
+     */
     private static class InvertedIndexMap extends Mapper<Object, Text, Text, Text>
     {
 
         Text valueInfo = new Text();
         Text keyInfo = new Text();
 
+        /**
+         * Map.
+         * @param key
+         * @param value
+         * @param context
+         * @throws IOException
+         * @throws InterruptedException
+         */
         @Override
-        public void map(Object key, Text value, Context context)
+        protected void map(Object key, Text value, Context context)
                 throws IOException, InterruptedException
         {
 
@@ -53,18 +66,27 @@ public class MapReduce
         }
     }
 
+    /**
+     * Class for Combine.
+     */
     private static class InvertedIndexCombiner extends Reducer<Text, Text, Text, Text>
     {
 
         Text valueInfo = new Text();
         Text keyInfo = new Text();
 
+        /**
+         * Combine, use reduce.
+         * @param key
+         * @param values
+         * @param contex
+         * @throws IOException
+         * @throws InterruptedException
+         */
         @Override
-        public void reduce(Text key, Iterable<Text> values, Context contex)
+        protected void reduce(Text key, Iterable<Text> values, Context contex)
                 throws IOException, InterruptedException
         {
-
-
             int sum = 0;
             for (Text value : values)
                 sum += Integer.parseInt(value.toString());
@@ -78,19 +100,29 @@ public class MapReduce
         }
     }
 
+    /**
+     * Class for Reduce.
+     */
     private static class InvertedIndexReduce extends Reducer<Text, Text, Text, Text>
     {
 
         Text result = new Text();
 
+        /**
+         * Reduce.
+         * @param key
+         * @param values
+         * @param context
+         * @throws IOException
+         * @throws InterruptedException
+         */
         @Override
-        public void reduce(Text key, Iterable<Text> values, Context context)
+        protected void reduce(Text key, Iterable<Text> values, Context context)
                 throws IOException, InterruptedException
         {
 
             //生成文档列表
             String fileList = new String();
-            String average = new String();
 
             int sum = 0;
             int file_count = 0;
@@ -111,16 +143,27 @@ public class MapReduce
                 set.add(sp[i]);
 
             StringBuilder resultStr = new StringBuilder();
-            for (String snipet : set)
-                resultStr.append(snipet).append(";");
+            for (String snippet : set)
+                resultStr.append(snippet).append(";");
 
-            average += String.valueOf((double) sum / file_count);
-            result.set(average + "," + resultStr.substring(0, resultStr.length() - 1));
+            result.set(resultStr.substring(0, resultStr.length() - 1));
+
+            //Write average results to file.
+            double average = (double) sum / file_count;
+
             context.write(key, result);
+
+            hb.insertDataToTable(key.toString(), String.valueOf(average));
+        }
+
+        @Override
+        protected void cleanup(Context context)
+        {
+            hb.cleanup();
         }
     }
 
-    public static void MapReduceJob(String[] args) throws IOException, InterruptedException, ClassNotFoundException
+    public void MapReduceJob(String[] args) throws IOException, InterruptedException, ClassNotFoundException
     {
 
         PropertyConfigurator.configure("log4j.properties");
@@ -142,6 +185,7 @@ public class MapReduce
 
         FileInputFormat.addInputPath(job, new Path(args[0]));
         FileOutputFormat.setOutputPath(job, new Path(args[1]));
+
         System.exit(job.waitForCompletion(true) ? 0 : 1);
 
     }
