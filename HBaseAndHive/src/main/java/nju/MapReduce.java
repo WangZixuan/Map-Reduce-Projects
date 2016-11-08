@@ -6,11 +6,12 @@ package nju;
  */
 
 import java.io.IOException;
-import java.util.Set;
-import java.util.StringTokenizer;
-import java.util.TreeSet;
+import java.util.*;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
@@ -18,12 +19,14 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-import org.apache.log4j.PropertyConfigurator;
-
 
 public class MapReduce
 {
-    static HBase hb=new HBase();
+    //static HBase hb=new HBase();
+
+    static final String ROWNAME = "Wuxia_row";
+
+    static List<Put> putList = new ArrayList<>();
 
     /**
      * Class for Map.
@@ -148,25 +151,37 @@ public class MapReduce
 
             result.set(resultStr.substring(0, resultStr.length() - 1));
 
-            //Write average results to file.
+            //Write average results to result.
             double average = (double) sum / file_count;
-
             context.write(key, result);
 
-            hb.insertDataToTable(key.toString(), String.valueOf(average));
+            //Write to putLiit.
+            Put put = new Put(Bytes.toBytes(ROWNAME));
+            put.addColumn(Bytes.toBytes("Word"), Bytes.toBytes("Word"), Bytes.toBytes(key.toString()));
+            put.addColumn(Bytes.toBytes("Count"), Bytes.toBytes("AverageCount"), Bytes.toBytes(average));
+            putList.add(put);
+
+            //Deprecated
+            //hb.insertDataToTable(key.toString(), String.valueOf(average));
         }
 
+        /**
+         *
+         * @param context
+         * @throws IOException
+         */
         @Override
-        protected void cleanup(Context context)
+        protected void cleanup(Context context) throws IOException
         {
-            hb.cleanup();
+            //hb.insertDataListToTable(putList);
+            //hb.writeToFile();
+            //hb.cleanup();
         }
     }
 
     public void MapReduceJob(String[] args) throws IOException, InterruptedException, ClassNotFoundException
     {
 
-        PropertyConfigurator.configure("log4j.properties");
         Configuration conf = new Configuration();
 
         Job job = new Job(conf, "InvertedIndex");

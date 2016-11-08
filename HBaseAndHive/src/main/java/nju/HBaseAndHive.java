@@ -1,6 +1,8 @@
 package nju;
 
 
+import org.apache.log4j.PropertyConfigurator;
+
 import java.io.File;
 import java.nio.file.FileAlreadyExistsException;
 
@@ -19,15 +21,11 @@ public class HBaseAndHive
      */
     public static void main(String[] args)
     {
+        PropertyConfigurator.configure("log4j.properties");
+
         MapReduce mr = new MapReduce();
         try
         {
-            File averageCountFile = new File("AverageCount.txt");
-            if (!averageCountFile.exists())
-                averageCountFile.createNewFile();
-            else
-                throw new FileAlreadyExistsException("AverageCount.txt");
-
             mr.MapReduceJob(args);
 
         } catch (Exception e)

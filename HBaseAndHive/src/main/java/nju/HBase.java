@@ -5,56 +5,72 @@ package nju;
  */
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HBaseConfiguration;
-import org.apache.hadoop.hbase.client.HTable;
-import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.*;
+import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.util.Bytes;
 
+import java.io.File;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.nio.file.FileAlreadyExistsException;
+import java.util.List;
 
 /**
  * HBase Operations.
  */
 public class HBase
 {
-    Configuration hbConfig;
     HTable hTable;
+    Configuration hbConfig = HBaseConfiguration.create();
 
     final String TABLENAME = "Wuxia";
-    final String ROWNAME = "Wuxia_row";
 
     /**
      * Constructor.
      */
     public HBase()
     {
-        hbConfig = HBaseConfiguration.create();
 
         //Create table.
         try
         {
-            hTable = new HTable(hbConfig, TABLENAME);
+            Connection connection = ConnectionFactory.createConnection(hbConfig);
+            Admin admin = connection.getAdmin();
+            HTableDescriptor tableDescriptor = new HTableDescriptor(TableName.valueOf(TABLENAME));
+
+            tableDescriptor.addFamily(new HColumnDescriptor("Word"));
+            tableDescriptor.addFamily(new HColumnDescriptor("AverageCount"));
+
+            if (admin.tableExists(tableDescriptor.getTableName()))
+            {
+                admin.disableTable(tableDescriptor.getTableName());
+                admin.deleteTable(tableDescriptor.getTableName());
+            }
+
+            admin.createTable(tableDescriptor);
+
+            connection.close();
+
         } catch (IOException ioe)
         {
             ioe.printStackTrace();
         }
     }
 
+
     /**
-     * Insert one column of data.
-     *
-     * @param word    inserted word
-     * @param avCount inserted average word count
+     * Insert columns of data.
+     * @param putList
      * @throws IOException
      */
-    public void insertDataToTable(String word, String avCount) throws IOException
+    public void insertDataListToTable(List<Put> putList) throws IOException
     {
-        Put put = new Put(Bytes.toBytes(ROWNAME));
-        put.addColumn(Bytes.toBytes("Word"), Bytes.toBytes("Word"), Bytes.toBytes(word));
-        put.addColumn(Bytes.toBytes("Count"), Bytes.toBytes("AverageCount"), Bytes.toBytes(avCount));
-        hTable.put(put);
+        hTable.put(putList);
     }
 
+    /**
+     * Close database.
+     */
     public void cleanup()
     {
         try
@@ -68,10 +84,23 @@ public class HBase
     }
 
     /**
-     *
+     * Write the table to local file.
      */
-    public void writeToFile()
+    public void writeToFile() throws IOException
     {
+        ResultScanner rs = hTable.getScanner(new Scan());
 
+        File averageCountFile = new File("AverageCount.txt");
+        if (!averageCountFile.exists())
+            averageCountFile.createNewFile();
+        else
+            throw new FileAlreadyExistsException("AverageCount.txt");
+
+        PrintWriter writer = new PrintWriter("AverageCount.txt", "UTF-8");
+        for (Result r : rs)
+            for (KeyValue keyValue : r.raw())
+                writer.println(keyValue.getFamily().toString() + keyValue.getKeyString());
+
+        writer.close();
     }
 }
