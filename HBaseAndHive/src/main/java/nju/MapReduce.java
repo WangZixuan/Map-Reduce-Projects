@@ -23,10 +23,7 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 class MapReduce
 {
     private static HBase hb;
-
     private static List<Put> putList;
-
-    private static final String ROWNAME = "Wuxia_row";
 
     /**
      * Constructor.
@@ -51,10 +48,10 @@ class MapReduce
         /**
          * Map.
          *
-         * @param key Input key.
-         * @param value Input value.
+         * @param key     Input key.
+         * @param value   Input value.
          * @param context Output.
-         * @throws IOException Map needs it.
+         * @throws IOException          Map needs it.
          * @throws InterruptedException Map needs it.
          */
         @Override
@@ -90,10 +87,10 @@ class MapReduce
         /**
          * Combine, use reduce.
          *
-         * @param key Input key.
-         * @param values Input values.
+         * @param key     Input key.
+         * @param values  Input values.
          * @param context Output.
-         * @throws IOException Combine needs it.
+         * @throws IOException          Combine needs it.
          * @throws InterruptedException Combine needs it.
          */
         @Override
@@ -124,10 +121,10 @@ class MapReduce
         /**
          * Reduce.
          *
-         * @param key Input key.
-         * @param values Input values.
+         * @param key     Input key.
+         * @param values  Input values.
          * @param context Output.
-         * @throws IOException Reduce needs it.
+         * @throws IOException          Reduce needs it.
          * @throws InterruptedException Reduce needs it.
          */
         @Override
@@ -159,16 +156,14 @@ class MapReduce
             for (String snippet : set)
                 resultStr.append(snippet).append(";");
 
+            //Write inverted indexes.
             result.set(resultStr.substring(0, resultStr.length() - 1));
-
-            //Write average results to result.
-            double average = (double) sum / file_count;
             context.write(key, result);
 
+            double average = (double) sum / file_count;
             //Write to putList.
-            Put put = new Put(Bytes.toBytes(ROWNAME));
-            put.addColumn(Bytes.toBytes("Word"), Bytes.toBytes("Word"), Bytes.toBytes(key.toString()));
-            put.addColumn(Bytes.toBytes("AverageCount"), Bytes.toBytes("AverageCount"), Bytes.toBytes(average));
+            Put put = new Put(Bytes.toBytes(key.toString()));
+            put.addColumn(Bytes.toBytes("AverageCount"), Bytes.toBytes("AverageCount"), Bytes.toBytes(String.valueOf(average)));
             putList.add(put);
 
             //Deprecated.
@@ -181,8 +176,8 @@ class MapReduce
      * Do the MapReduce job.
      *
      * @param args args for input and output.
-     * @throws IOException MapReduce needs it.
-     * @throws InterruptedException MapReduce needs it.
+     * @throws IOException            MapReduce needs it.
+     * @throws InterruptedException   MapReduce needs it.
      * @throws ClassNotFoundException MapReduce needs it.
      */
     void MapReduceJob(String[] args) throws IOException, InterruptedException, ClassNotFoundException
@@ -190,7 +185,7 @@ class MapReduce
 
         Configuration conf = new Configuration();
 
-        Job job = new Job(conf, "InvertedIndex");
+        Job job = new Job(conf, "MapReduceHBase");
 
         job.setJarByClass(MapReduce.class);
 
