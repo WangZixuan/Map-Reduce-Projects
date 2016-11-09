@@ -8,6 +8,7 @@ package nju;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.util.Bytes;
 
 import java.io.File;
 import java.io.IOException;
@@ -16,8 +17,9 @@ import java.util.List;
 
 class HBase
 {
+    private HTable hTable;
+
     private final String TABLENAME = "Wuxia";
-    private Configuration hbConfig;
 
     /**
      * Constructor.
@@ -26,7 +28,8 @@ class HBase
      */
     HBase() throws IOException
     {
-        hbConfig = HBaseConfiguration.create();
+        Configuration hbConfig = HBaseConfiguration.create();
+        hTable = new HTable(hbConfig, TABLENAME);
 
         //Create table.
         HBaseAdmin admin = new HBaseAdmin(hbConfig);
@@ -53,9 +56,9 @@ class HBase
      */
     void insertDataListToTable(List<Put> putList) throws IOException
     {
-        HTable hTable=new HTable(hbConfig, TABLENAME);
         hTable.put(putList);
     }
+
     /**
      * Insert columns of data.
      *
@@ -64,7 +67,6 @@ class HBase
      */
     void insertDataToTable(Put put) throws IOException
     {
-        HTable hTable=new HTable(hbConfig, TABLENAME);
         hTable.put(put);
     }
 
@@ -75,7 +77,6 @@ class HBase
      */
     void cleanup() throws IOException
     {
-        HTable hTable=new HTable(hbConfig, TABLENAME);
         hTable.close();
     }
 
@@ -86,23 +87,24 @@ class HBase
      */
     void writeToFile() throws IOException
     {
-        HTable hTable=new HTable(hbConfig, TABLENAME);
-        ResultScanner rs = hTable.getScanner(new Scan());
-
+        //Create a file.
         File averageCountFile = new File("AverageCount.txt");
-        if (!averageCountFile.exists())
-            averageCountFile.createNewFile();
-        else
-        {
+        if (averageCountFile.exists())
             averageCountFile.delete();
-            averageCountFile.createNewFile();
-        }
+
+        Scan scan = new Scan();
+        scan.addColumn(Bytes.toBytes("AverageCount"), Bytes.toBytes("AverageCount"));
+        ResultScanner rs = hTable.getScanner(scan);
 
         PrintWriter writer = new PrintWriter("AverageCount.txt", "UTF-8");
-        for (Result r : rs)
-            for (KeyValue keyValue : r.raw())
-                writer.println(keyValue.getFamily().toString() + keyValue.getKeyString());
 
+        for (Result r : rs)
+        {
+            writer.print(new String(r.getRow()) + "\t");
+            for (KeyValue keyValue : r.raw())
+                writer.print(new String(keyValue.getValue()));
+            writer.println();
+        }
         writer.close();
     }
 }
