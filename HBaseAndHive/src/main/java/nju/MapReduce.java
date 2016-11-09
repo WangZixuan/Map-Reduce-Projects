@@ -20,13 +20,24 @@ import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
-public class MapReduce
+class MapReduce
 {
-    //static HBase hb=new HBase();
+    private static HBase hb;
 
-    static final String ROWNAME = "Wuxia_row";
+    private static List<Put> putList;
 
-    static List<Put> putList = new ArrayList<>();
+    private static final String ROWNAME = "Wuxia_row";
+
+    /**
+     * Constructor.
+     *
+     * @throws IOException HBase needs it.
+     */
+    MapReduce() throws IOException
+    {
+        hb = new HBase();
+        putList = new ArrayList<>();
+    }
 
     /**
      * Class for Map.
@@ -39,33 +50,31 @@ public class MapReduce
 
         /**
          * Map.
-         * @param key
-         * @param value
-         * @param context
-         * @throws IOException
-         * @throws InterruptedException
+         *
+         * @param key Input key.
+         * @param value Input value.
+         * @param context Output.
+         * @throws IOException Map needs it.
+         * @throws InterruptedException Map needs it.
          */
         @Override
         protected void map(Object key, Text value, Context context)
                 throws IOException, InterruptedException
         {
 
-            //获取<key value>对所属的FileSplit对象
+            //Get <key value> from FileSplit.
             FileSplit split = (FileSplit) context.getInputSplit();
             String filePath = split.getPath().toString().toLowerCase();
 
             StringTokenizer stk = new StringTokenizer(value.toString());
             while (stk.hasMoreElements())
             {
-                //key值由（单词：URI）组成
+                //key:(word：URI).
                 keyInfo.set(stk.nextToken() + ":" + filePath);
-                //词频
+                //Count of the word.
                 valueInfo.set("1");
                 context.write(keyInfo, valueInfo);
-
             }
-
-
         }
     }
 
@@ -80,14 +89,15 @@ public class MapReduce
 
         /**
          * Combine, use reduce.
-         * @param key
-         * @param values
-         * @param contex
-         * @throws IOException
-         * @throws InterruptedException
+         *
+         * @param key Input key.
+         * @param values Input values.
+         * @param context Output.
+         * @throws IOException Combine needs it.
+         * @throws InterruptedException Combine needs it.
          */
         @Override
-        protected void reduce(Text key, Iterable<Text> values, Context contex)
+        protected void reduce(Text key, Iterable<Text> values, Context context)
                 throws IOException, InterruptedException
         {
             int sum = 0;
@@ -95,11 +105,11 @@ public class MapReduce
                 sum += Integer.parseInt(value.toString());
 
             int splitIndex = key.toString().indexOf(":");
-            //重新设置value值由（URI:词频)组成
+            //Reset value to（URI:count).
             valueInfo.set(key.toString().substring(splitIndex + 1) + ":" + sum);
-            //重新设置key值为单词
+            //Reset key to word.
             keyInfo.set(key.toString().substring(0, splitIndex));
-            contex.write(keyInfo, valueInfo);
+            context.write(keyInfo, valueInfo);
         }
     }
 
@@ -113,19 +123,20 @@ public class MapReduce
 
         /**
          * Reduce.
-         * @param key
-         * @param values
-         * @param context
-         * @throws IOException
-         * @throws InterruptedException
+         *
+         * @param key Input key.
+         * @param values Input values.
+         * @param context Output.
+         * @throws IOException Reduce needs it.
+         * @throws InterruptedException Reduce needs it.
          */
         @Override
         protected void reduce(Text key, Iterable<Text> values, Context context)
                 throws IOException, InterruptedException
         {
 
-            //生成文档列表
-            String fileList = new String();
+            //Generate list of docs.
+            String fileList = "";
 
             int sum = 0;
             int file_count = 0;
@@ -140,10 +151,9 @@ public class MapReduce
             //Sort fileList.
             String[] sp = fileList.split(";");
 
-            Set<String> set = new TreeSet<String>();
+            Set<String> set = new TreeSet<>();
 
-            for (int i = 0; i < sp.length; ++i)
-                set.add(sp[i]);
+            Collections.addAll(set, sp);
 
             StringBuilder resultStr = new StringBuilder();
             for (String snippet : set)
@@ -155,31 +165,27 @@ public class MapReduce
             double average = (double) sum / file_count;
             context.write(key, result);
 
-            //Write to putLiit.
+            //Write to putList.
             Put put = new Put(Bytes.toBytes(ROWNAME));
             put.addColumn(Bytes.toBytes("Word"), Bytes.toBytes("Word"), Bytes.toBytes(key.toString()));
-            put.addColumn(Bytes.toBytes("Count"), Bytes.toBytes("AverageCount"), Bytes.toBytes(average));
+            put.addColumn(Bytes.toBytes("AverageCount"), Bytes.toBytes("AverageCount"), Bytes.toBytes(average));
             putList.add(put);
 
-            //Deprecated
-            //hb.insertDataToTable(key.toString(), String.valueOf(average));
+            //Deprecated.
+            //hb.insertDataToTable(put);
         }
 
-        /**
-         *
-         * @param context
-         * @throws IOException
-         */
-        @Override
-        protected void cleanup(Context context) throws IOException
-        {
-            //hb.insertDataListToTable(putList);
-            //hb.writeToFile();
-            //hb.cleanup();
-        }
     }
 
-    public void MapReduceJob(String[] args) throws IOException, InterruptedException, ClassNotFoundException
+    /**
+     * Do the MapReduce job.
+     *
+     * @param args args for input and output.
+     * @throws IOException MapReduce needs it.
+     * @throws InterruptedException MapReduce needs it.
+     * @throws ClassNotFoundException MapReduce needs it.
+     */
+    void MapReduceJob(String[] args) throws IOException, InterruptedException, ClassNotFoundException
     {
 
         Configuration conf = new Configuration();
@@ -201,7 +207,13 @@ public class MapReduce
         FileInputFormat.addInputPath(job, new Path(args[0]));
         FileOutputFormat.setOutputPath(job, new Path(args[1]));
 
-        System.exit(job.waitForCompletion(true) ? 0 : 1);
+
+        if (job.waitForCompletion(true))
+        {
+            hb.insertDataListToTable(putList);
+            hb.writeToFile();
+            hb.cleanup();
+        }
 
     }
 }

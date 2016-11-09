@@ -17,15 +17,16 @@ public class HBaseAndHive
 {
     /**
      * Main.
-     * @param args
+     *
+     * @param args Args passed from input.
      */
     public static void main(String[] args)
     {
         PropertyConfigurator.configure("log4j.properties");
 
-        MapReduce mr = new MapReduce();
         try
         {
+            MapReduce mr = new MapReduce();
             mr.MapReduceJob(args);
 
         } catch (Exception e)

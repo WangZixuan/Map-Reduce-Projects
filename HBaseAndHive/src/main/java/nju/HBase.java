@@ -1,100 +1,102 @@
 package nju;
 
 /**
+ * HBase Operations.
  * Created by Zixuan on 16-11-8.
  */
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.client.*;
-import org.apache.hadoop.hbase.util.Bytes;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.nio.file.FileAlreadyExistsException;
 import java.util.List;
 
-/**
- * HBase Operations.
- */
-public class HBase
+class HBase
 {
-    HTable hTable;
-    Configuration hbConfig = HBaseConfiguration.create();
-
-    final String TABLENAME = "Wuxia";
+    private final String TABLENAME = "Wuxia";
+    private Configuration hbConfig;
 
     /**
      * Constructor.
+     *
+     * @throws IOException HBase needs it.
      */
-    public HBase()
+    HBase() throws IOException
     {
+        hbConfig = HBaseConfiguration.create();
 
         //Create table.
-        try
+        HBaseAdmin admin = new HBaseAdmin(hbConfig);
+        HTableDescriptor tableDescriptor = new HTableDescriptor(TableName.valueOf(TABLENAME));
+
+        tableDescriptor.addFamily(new HColumnDescriptor("Word"));
+        tableDescriptor.addFamily(new HColumnDescriptor("AverageCount"));
+
+        if (admin.tableExists(tableDescriptor.getTableName()))
         {
-            Connection connection = ConnectionFactory.createConnection(hbConfig);
-            Admin admin = connection.getAdmin();
-            HTableDescriptor tableDescriptor = new HTableDescriptor(TableName.valueOf(TABLENAME));
-
-            tableDescriptor.addFamily(new HColumnDescriptor("Word"));
-            tableDescriptor.addFamily(new HColumnDescriptor("AverageCount"));
-
-            if (admin.tableExists(tableDescriptor.getTableName()))
-            {
-                admin.disableTable(tableDescriptor.getTableName());
-                admin.deleteTable(tableDescriptor.getTableName());
-            }
-
-            admin.createTable(tableDescriptor);
-
-            connection.close();
-
-        } catch (IOException ioe)
-        {
-            ioe.printStackTrace();
+            admin.disableTable(tableDescriptor.getTableName());
+            admin.deleteTable(tableDescriptor.getTableName());
         }
+
+        admin.createTable(tableDescriptor);
     }
 
 
     /**
      * Insert columns of data.
-     * @param putList
-     * @throws IOException
+     *
+     * @param putList A Put list to be put in the HBase.
+     * @throws IOException HBase needs it.
      */
-    public void insertDataListToTable(List<Put> putList) throws IOException
+    void insertDataListToTable(List<Put> putList) throws IOException
     {
+        HTable hTable=new HTable(hbConfig, TABLENAME);
         hTable.put(putList);
+    }
+    /**
+     * Insert columns of data.
+     *
+     * @param put A Put class to be put in the HBase.
+     * @throws IOException HBase needs it.
+     */
+    void insertDataToTable(Put put) throws IOException
+    {
+        HTable hTable=new HTable(hbConfig, TABLENAME);
+        hTable.put(put);
     }
 
     /**
      * Close database.
+     *
+     * @throws IOException HBase needs it.
      */
-    public void cleanup()
+    void cleanup() throws IOException
     {
-        try
-        {
-            hTable.close();
-        } catch (IOException ioe)
-        {
-            ioe.printStackTrace();
-        }
-
+        HTable hTable=new HTable(hbConfig, TABLENAME);
+        hTable.close();
     }
 
     /**
      * Write the table to local file.
+     *
+     * @throws IOException HBase needs it.
      */
-    public void writeToFile() throws IOException
+    void writeToFile() throws IOException
     {
+        HTable hTable=new HTable(hbConfig, TABLENAME);
         ResultScanner rs = hTable.getScanner(new Scan());
 
         File averageCountFile = new File("AverageCount.txt");
         if (!averageCountFile.exists())
             averageCountFile.createNewFile();
         else
-            throw new FileAlreadyExistsException("AverageCount.txt");
+        {
+            averageCountFile.delete();
+            averageCountFile.createNewFile();
+        }
 
         PrintWriter writer = new PrintWriter("AverageCount.txt", "UTF-8");
         for (Result r : rs)
